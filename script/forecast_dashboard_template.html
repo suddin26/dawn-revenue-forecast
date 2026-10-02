@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revenue forecast & scenario dashboard</title>
+<style>
+  :root { color-scheme: light; --ink:#182b43; --muted:#637287; --line:#dce4ed; --blue:#2563eb; --orange:#dc7814; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#f3f6fa; color:var(--ink); font:14px/1.5 system-ui, sans-serif; }
+  main { max-width:1480px; margin:auto; padding:30px; }
+  header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:24px; }
+  .eyebrow { text-transform:uppercase; letter-spacing:.12em; color:#4c6885; font-size:11px; font-weight:750; }
+  h1 { margin:5px 0; font-size:clamp(24px,3vw,34px); letter-spacing:-.035em; }
+  h2 { margin:0 0 7px; font-size:18px; }
+  p { margin:0; }
+  .muted { color:var(--muted); }
+  .badge { padding:8px 12px; border:1px solid var(--line); background:white; border-radius:20px; white-space:nowrap; font-size:12px; }
+  .panel { background:white; border:1px solid var(--line); border-radius:14px; padding:22px; margin-bottom:18px; }
+  .controls { display:grid; grid-template-columns:1fr 2fr 1fr 1fr 1.5fr; gap:14px; }
+  .controls > div, .scenario > div, .panel, .card { min-width:0; }
+  label { display:block; color:#3c5069; font-size:12px; font-weight:650; margin-bottom:6px; }
+  select, input { width:100%; background:white; color:var(--ink); border:1px solid #c5d1de; border-radius:7px; padding:10px; font:inherit; min-height:42px; }
+  select:focus, input:focus, button:focus-visible { outline:3px solid #b4d1fd; outline-offset:2px; }
+  .scenario { display:grid; grid-template-columns:180px 220px 1fr; gap:18px; align-items:end; margin-top:18px; border-top:1px solid var(--line); padding-top:18px; }
+  .presets { display:flex; gap:7px; align-items:center; flex-wrap:wrap; }
+  button { padding:9px 13px; border:1px solid #c5d1de; border-radius:7px; background:white; color:var(--ink); font:inherit; cursor:pointer; }
+  button:hover { background:#edf3fb; }
+  button:disabled { opacity:.45; cursor:default; }
+  .primary { background:#1f4f83; color:white; border-color:#1f4f83; }
+  .primary:hover { background:#173e69; }
+  .help { font-size:12px; color:var(--muted); margin-top:12px; }
+  .error { color:#a92222; min-height:18px; font-size:12px; }
+  .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:18px 0; }
+  .card { background:white; border:1px solid var(--line); padding:18px 20px; border-radius:12px; }
+  .card .label { color:var(--muted); font-size:12px; }
+  .value { font-size:clamp(20px,2.2vw,29px); font-weight:730; letter-spacing:-.035em; margin:5px 0; font-variant-numeric:tabular-nums; }
+  .year-row { display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-bottom:1px solid #edf1f6; font-variant-numeric:tabular-nums; }
+  .year-row:last-child { border-bottom:0; }
+  .model-options { display:flex; flex-wrap:wrap; gap:12px; margin:12px 0; }
+  .model-options label { display:flex; align-items:center; gap:6px; font-weight:400; }
+  .model-options input { width:auto; min-height:0; }
+  textarea { width:100%; min-height:110px; resize:vertical; padding:12px; border:1px solid #c5d1de; border-radius:7px; font:inherit; }
+  .card .detail { color:var(--muted); font-size:11px; }
+  .blue { color:var(--blue); } .orange { color:var(--orange); }
+  .section-head { display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap; }
+  #status { background:#eef4fb; border-left:3px solid #6e91b7; padding:10px 14px; border-radius:4px; margin:14px 0; font-size:12px; }
+  #chart { height:470px; }
+  .tables { display:grid; grid-template-columns:1fr; gap:0; }
+  .table-scroll { overflow-x:auto; margin-top:14px; }
+  table { border-collapse:collapse; width:100%; white-space:nowrap; font-size:13px; }
+  th { text-align:right; color:#5d7087; font-weight:650; background:#f6f8fb; }
+  th,td { padding:11px 13px; border-bottom:1px solid #e5ebf2; text-align:right; font-variant-numeric:tabular-nums; }
+  th:first-child,td:first-child { text-align:left; }
+  tr.selected { background:#edf4fe; }
+  .pill { border-radius:12px; padding:3px 8px; font-size:11px; background:#eff2f6; color:#506174; }
+  .pill.good { background:#e5f4eb; color:#22613e; }
+  .pill.review { background:#fff2dc; color:#805418; }
+  details { color:var(--muted); font-size:12px; }
+  details summary { cursor:pointer; color:var(--ink); font-weight:650; }
+  details p { margin-top:9px; }
+  footer { color:var(--muted); font-size:11px; padding:0 3px 20px; }
+  @media(max-width:950px) { .controls{grid-template-columns:1fr 2fr;} .scenario{grid-template-columns:1fr 1fr;} .presets{grid-column:1 / -1;} .cards{grid-template-columns:repeat(2,1fr);} }
+  @media(max-width:600px) { main{padding:14px;} header{display:block;} .badge{display:inline-block;margin-top:12px;} .controls,.scenario{grid-template-columns:1fr;} .cards{grid-template-columns:1fr;gap:8px;} .card{padding:12px;} .panel{padding:15px;} #chart{height:390px;} }
+</style>
+<script>__PLOTLY_LIBRARY__</script>
+</head>
+<body>
+<main>
+  <header>
+    <div><div class="eyebrow">Revenue planning / Scenario explorer</div>
+      <h1>See how your projection changes.</h1>
+      <p class="muted">Choose a budget account and GL, then compare a base forecast with your adjustment.</p></div>
+    <div class="badge" id="cutoffBadge"></div>
+  </header>
+  <section class="panel" aria-label="Dashboard filters">
+    <div class="controls">
+      <div><label for="ba">Budget account (BA)</label><select id="ba"></select></div>
+      <div><label for="gl">GL code</label><select id="gl"></select></div>
+      <div><label for="startYear">FY from</label><select id="startYear"></select></div>
+      <div><label for="endYear">FY through</label><select id="endYear"></select></div>
+      <div><label for="model">Reference model (cards / scenario)</label><select id="model"></select></div>
+    </div>
+    <div class="scenario">
+      <div><label for="adjustment">Scenario adjustment (%)</label><input id="adjustment" type="number" min="-100" max="1000" step="0.5" value="0"></div>
+      <div><label for="mode">Apply adjustment</label><select id="mode"><option value="uniform">Same percentage each year</option><option value="compound">Compound annually</option></select></div>
+      <div class="presets"><button data-percent="-10">−10%</button><button data-percent="10">+10%</button><button data-percent="0">Reset to base</button><span class="help">Try a preset to compare paths.</span></div>
+    </div>
+    <p class="help">Year filters change the graph only. Cards and comparison retain the forecast horizon and two recent actual years. BA and GL select forecasts fitted to that group’s revenue. “All GLs” uses an aggregate model.</p>
+    <div id="inputError" class="error" role="alert"></div>
+  </section>
+  <div class="cards" id="yearCards"></div>
+  <section class="panel">
+    <div class="section-head"><div><h2 id="chartTitle">Historical revenue and forecast</h2><p id="chartSubtitle" class="muted"></p></div><span class="badge" id="modelBadge"></span></div>
+    <div id="status" role="status"></div>
+    <label>Additional base-model projections</label>
+    <div id="modelOptions" class="model-options"></div>
+    <p class="help">Compare multiple base projections using the checkboxes. Cards and the adjusted line use the reference model selected above.</p>
+    <div id="chart" aria-label="Interactive historical revenue and forecast chart"></div>
+    <p class="help">The dotted divider marks the start of the forecast. The orange line is your scenario; it does not change the fitted model or its validation.</p>
+  </section>
+  <section class="panel" aria-label="Report notes">
+    <div class="section-head"><h2>Notes</h2><span class="muted" id="notesStatus">Notes for this BA / GL</span></div>
+    <p id="selectionNotes" class="help"></p>
+    <label for="reportNotes">Your assumptions and observations</label>
+    <textarea id="reportNotes" placeholder="Record the reason for an adjustment, expected policy changes, or other assumptions."></textarea>
+    <p class="help">Notes are saved in this browser by BA/GL selection and included in the scenario CSV. They are not shared or written back to the source data.</p>
+  </section>
+  <div class="tables">
+    <section class="panel">
+      <div class="section-head"><div><h2>Projection comparison</h2><p class="muted" id="projectionNote"></p></div><button class="primary" id="downloadScenario">Download scenario CSV</button></div>
+      <div class="table-scroll"><table><thead><tr><th>Fiscal year</th><th>Type</th><th>Actual / base</th><th>Adjusted path</th><th>Difference</th><th>Base YoY</th><th>Adjusted YoY</th></tr></thead><tbody id="projectionRows"></tbody></table></div>
+    </section>
+    <section class="panel">
+      <div class="section-head"><div><h2>Model validation</h2><p class="muted">Historical backtests for this BA/GL selection. Lower error is better.</p></div><button id="downloadValidation">Download validation CSV</button></div>
+      <div class="table-scroll"><table><thead><tr><th>Model</th><th>Forecast cases</th><th>MAE</th><th>RMSE</th><th>WAPE</th><th>Skill vs. naive</th><th>Verdict</th></tr></thead><tbody id="validationRows"></tbody></table></div>
+      <p class="help">Positive skill means lower MAE than the naive benchmark. Best-backtest selection is descriptive, not independently validated. The scenario itself is not backtested.</p>
+    </section>
+  </div>
+  <section class="panel"><details><summary>How the forecast and adjustment work</summary>
+    <p id="methodNotes"></p>
+    <p>Uniform scenario: base × (1 + adjustment / 100). Compounded scenario: base × (1 + adjustment / 100)<sup>horizon</sup>. Horizon is 1, 2, or 3 from the forecast origin—even if you hide earlier years.</p>
+    <p>Percentages multiply signed revenue. A positive percentage makes a negative revenue amount more negative. Historical gaps stay missing. Selections without cutoff-year records have no forecast.</p>
+    <p>Holt uses a damped trend; random forest uses two revenue lags and time; Monte Carlo samples recent annual dollar changes. P10–P90, shown only for a selected Monte Carlo forecast, is an assumption-based simulation range for the unadjusted projection.</p>
+    <p>Read the notebook for the data-loading, model, validation, caching, and export code.</p>
+  </details></section>
+  <footer id="reportFooter"></footer>
+</main>
+<script id="dashboard-data" type="application/json">__DASHBOARD_DATA__</script>
+<script>
+'use strict';
+// 1. Load precomputed model results. Filtering and scenario arithmetic run entirely in the browser.
+const REPORT = JSON.parse(document.getElementById('dashboard-data').textContent);
+const SERIES = REPORT.series;
+const SETTINGS = REPORT.settings;
+const byId = id => document.getElementById(id);
+const money = new Intl.NumberFormat('en-US', {style:'currency',currency:'USD',maximumFractionDigits:0});
+const dollars = value => Number.isFinite(value) ? money.format(value) : 'Unavailable';
+const percent = value => Number.isFinite(value) ? value.toFixed(1) + '%' : '—';
+const option = (label, value) => new Option(label, value);
+// Internal model keys stay unchanged so existing cached fits remain reusable.
+const MODEL_ORDER = ['Naive baseline','Linear','Holt','Monte Carlo','ML (Random forest)'];
+const MODEL_LABELS = {'Naive baseline':'Naive (Baseline)','ML (Random forest)':'ML (Random Forest)'};
+const modelLabel = model => MODEL_LABELS[model] || model;
+const MODEL_COLORS = {'Naive baseline':'#6b7280','Linear':'#7c3aed','Holt':'#00897b','Monte Carlo':'#c026d3','ML (Random forest)':'#0284c7'};
+const comparisonModels = new Set(MODEL_ORDER);
+const sessionNotes = new Map();
+let currentRows = [], currentSeries = null, currentModel = null;
+const notesKey = series => 'revenue-notes-v1|' + series.ba + '|' + series.gl;
+function readNotes(series) {
+  const key=notesKey(series);
+  if(sessionNotes.has(key)) return sessionNotes.get(key);
+  try { return localStorage.getItem(key)||''; } catch { return ''; }
+}
+function orderedValidation(series) {
+  return MODEL_ORDER.map(model=>series.validation.find(row=>row.model===model)).filter(Boolean);
+}
+// YoY uses the exact prior fiscal year, even when that year is outside the chart view.
+// Absolute denominator makes signed net-revenue changes interpretable; zero/missing bases are undefined.
+function yearChange(current, previous) {
+  return Number.isFinite(current)&&Number.isFinite(previous)&&previous!==0 ? 100*(current-previous)/Math.abs(previous) : null;
+}
+function comparisonRows(series, forecasts) {
+  const actuals=new Map(series.history);
+  const historical=[SETTINGS.last_complete_fy-1,SETTINGS.last_complete_fy].map(year=>{
+    const value=actuals.has(year)?actuals.get(year):null;
+    return {year,type:'Actual',base:value,adjusted:value,difference:null,applied:null,
+      baseYoY:yearChange(value,actuals.get(year-1)),adjustedYoY:yearChange(value,actuals.get(year-1))};
+  });
+  const future=forecasts.map((row,index)=>({...row,type:'Forecast',
+    baseYoY:yearChange(row.base,index?forecasts[index-1].base:actuals.get(SETTINGS.last_complete_fy)),
+    adjustedYoY:yearChange(row.adjusted,index?forecasts[index-1].adjusted:actuals.get(SETTINGS.last_complete_fy))}));
+  return [...historical,...future];
+}
+let chartFrame = null;
+
+// 2. BA determines the valid GL options; retain the previous GL where possible.
+const bas = [...new Set(Object.values(SERIES).map(row => row.ba))].filter(ba => ba !== 'ALL').sort((a,b)=>+a-+b);
+byId('ba').add(option('All BAs', 'ALL'));
+bas.forEach(ba => byId('ba').add(option(ba, ba)));
+function updateGLs() {
+  const previous = byId('gl').value;
+  const rows = Object.values(SERIES).filter(row => row.ba === byId('ba').value);
+  rows.sort((a,b) => a.gl === 'ALL' ? -1 : b.gl === 'ALL' ? 1 : +a.gl - +b.gl);
+  byId('gl').replaceChildren();
+  rows.forEach(row => byId('gl').add(option(row.gl === 'ALL' ? 'All GLs' : row.gl + ' · ' + row.description, row.gl)));
+  byId('gl').value = rows.some(row=>row.gl===previous) ? previous : 'ALL';
+  updateModels();
+}
+function updateModels() {
+  const previous = byId('model').value;
+  const row = SERIES[byId('ba').value + '|' + byId('gl').value];
+  byId('model').replaceChildren(option('Best backtest / available', 'auto'));
+  MODEL_ORDER.forEach(model => {
+    const item = option(modelLabel(model), model);
+    item.disabled = !row.forecasts[model].some(Number.isFinite);
+    byId('model').add(item);
+  });
+  byId('model').value = REPORT.models.includes(previous) && row.forecasts[previous].some(Number.isFinite) ? previous : 'auto';
+}
+const minYear = Math.min(...Object.values(SERIES).map(row=>row.history[0][0]));
+const maxYear = SETTINGS.last_complete_fy + SETTINGS.horizon;
+for (let year=minYear; year<=maxYear; year++) {
+  byId('startYear').add(option('FY '+year,year));
+  byId('endYear').add(option('FY '+year,year));
+}
+byId('startYear').value = Math.max(minYear,SETTINGS.last_complete_fy-9);
+byId('endYear').value = maxYear;
+
+// 3. Keep scenario math separate from fitting; never overwrite stored base forecasts.
+function scenarioRows(series, model, adjustment, mode) {
+  return series.future_years.map((year,index) => {
+    const base = model ? series.forecasts[model][index] : null;
+    const factor = mode === 'compound' ? Math.pow(1+adjustment/100,index+1) : 1+adjustment/100;
+    const adjusted = Number.isFinite(base) ? base*factor : null;
+    return {year,base,adjusted,difference:Number.isFinite(base)?adjusted-base:null,applied:100*(factor-1)};
+  });
+}
+function addCell(row, text, className='') {
+  const cell=document.createElement('td'); cell.textContent=text;
+  if(className) cell.className=className;
+  row.appendChild(cell); return cell;
+}
+function sumAvailable(rows,key) {
+  return rows.length && rows.every(row=>Number.isFinite(row[key])) ? rows.reduce((total,row)=>total+row[key],0) : null;
+}
+
+// 4. Refresh chart, cards, and tables together so every view describes the same selection.
+function render() {
+  const input=byId('adjustment');
+  if(input.value.trim()==='' || !Number.isFinite(+input.value) || +input.value < -100 || +input.value > 1000) {
+    byId('inputError').textContent='Enter an adjustment between -100% and +1,000%.';
+    byId('downloadScenario').disabled=true;
+    return;
+  }
+  byId('inputError').textContent='';
+  const start=+byId('startYear').value, end=+byId('endYear').value;
+  const adjustment=+input.value, mode=byId('mode').value;
+  const series=SERIES[byId('ba').value+'|'+byId('gl').value];
+  const model=byId('model').value==='auto'?series.chosen_model:byId('model').value;
+  currentSeries=series; currentModel=model;
+  const allRows=scenarioRows(series,model,adjustment,mode);
+  currentRows=comparisonRows(series,allRows);
+  const selectionName=(series.ba==='ALL'?'All BAs':'BA '+series.ba)+' / '+(series.gl==='ALL'?'All GLs':'GL '+series.gl);
+  byId('chartTitle').textContent=selectionName;
+  byId('chartSubtitle').textContent=series.description+' · FY '+start+'–'+end;
+  byId('modelBadge').textContent=model||'Forecast unavailable';
+  const verdict=series.validation.find(row=>row.model===model)?.verdict;
+  byId('status').textContent=series.status+(verdict?' · '+verdict:'')+' · Model history: '+series.training_years+' year(s), starting FY '+series.training_start+'.';
+  // The three year cards use the reference model, independent of the chart year range.
+  byId('yearCards').replaceChildren();
+  allRows.forEach(row=>{
+    const card=document.createElement('div');card.className='card';
+    const title=document.createElement('h2');title.textContent='Forecast FY '+row.year;card.appendChild(title);
+    [['Base',row.base,'blue'],['Adjusted',row.adjusted,'orange'],['Difference',row.difference,'']].forEach(([label,value,color])=>{
+      const line=document.createElement('div');line.className='year-row';
+      const name=document.createElement('span');name.textContent=label;
+      const amount=document.createElement('strong');amount.textContent=dollars(value);amount.className=color;
+      line.append(name,amount);card.appendChild(line);
+    });byId('yearCards').appendChild(card);
+  });
+  byId('projectionNote').textContent='Two recent actual years and the full forecast horizon. Reference: '+(modelLabel(model)||'unavailable')+'. YoY = change / absolute previous-year revenue; zero or missing denominators are undefined. Annual data only: no quarterly or monthly forecast rates.';
+  byId('downloadScenario').disabled=false;
+  byId('reportNotes').value=readNotes(series);
+  byId('notesStatus').textContent='Notes for '+selectionName;
+  byId('selectionNotes').textContent='Forecast origin: FY '+SETTINGS.last_complete_fy+'. Adjustment: '+adjustment+'% '+(mode==='compound'?'compounded annually':'to each forecast year')+'. '+series.status+'.';
+  byId('modelOptions').replaceChildren();
+  MODEL_ORDER.forEach(other=>{
+    const label=document.createElement('label'), checkbox=document.createElement('input');
+    checkbox.type='checkbox';checkbox.value=other;
+    checkbox.disabled=other===model||!series.forecasts[other].some(Number.isFinite);
+    checkbox.checked=other===model||comparisonModels.has(other);
+    checkbox.addEventListener('change',()=>{checkbox.checked?comparisonModels.add(other):comparisonModels.delete(other);render();});
+    label.append(checkbox,document.createTextNode(modelLabel(other)+(other===model?' (reference)':'')));
+    byId('modelOptions').appendChild(label);
+  });
+
+  // Insert nulls for missing historical years so the line does not bridge a data gap.
+  const actualMap=new Map(series.history);
+  const historyYears=[], historyValues=[];
+  for(let year=Math.max(start,minYear);year<=Math.min(end,SETTINGS.last_complete_fy);year++) {
+    historyYears.push(year); historyValues.push(actualMap.has(year)?actualMap.get(year):null);
+  }
+  const traces=[{x:historyYears,y:historyValues,name:'Actual revenue',mode:'lines+markers',connectgaps:false,
+    line:{color:'#334155',width:2},marker:{size:5},hovertemplate:'FY %{x}<br>Actual: $%{y:,.0f}<extra></extra>'}];
+  if(model==='Monte Carlo') {
+    const indices=series.future_years.map((year,index)=>({year,index})).filter(row=>row.year>=start&&row.year<=end);
+    traces.push({x:indices.map(row=>row.year),y:indices.map(row=>series.mc_p10[row.index]),mode:'lines',line:{width:0},showlegend:false,hoverinfo:'skip',legendgroup:'range'});
+    traces.push({x:indices.map(row=>row.year),y:indices.map(row=>series.mc_p90[row.index]),mode:'lines',line:{width:0},fill:'tonexty',fillcolor:'rgba(37,99,235,.10)',name:'Base MC P10–P90',legendgroup:'range',hoverinfo:'skip'});
+  }
+  if(model) {
+    const anchor=actualMap.get(SETTINGS.last_complete_fy);
+    const projected=[{year:SETTINGS.last_complete_fy,base:anchor,adjusted:anchor},...allRows].filter(row=>row.year>=start&&row.year<=end);
+    traces.push({x:projected.map(row=>row.year),y:projected.map(row=>row.base),name:modelLabel(model)+' - base (reference)',mode:'lines+markers',line:{color:'#2563eb',width:3,dash:'dash'},hovertemplate:'FY %{x}<br>Base: $%{y:,.0f}<extra></extra>'});
+    traces.push({x:projected.map(row=>row.year),y:projected.map(row=>row.adjusted),name:modelLabel(model)+' - adjusted',mode:'lines+markers',line:{color:'#dc7814',width:3},hovertemplate:'FY %{x}<br>Adjusted: $%{y:,.0f}<extra></extra>'});
+  }
+  // Additional model lines are unadjusted comparisons; the orange scenario belongs to the reference.
+  MODEL_ORDER.filter(other=>other!==model&&comparisonModels.has(other)&&series.forecasts[other].some(Number.isFinite)).forEach(other=>{
+    const points=[{year:SETTINGS.last_complete_fy,value:actualMap.get(SETTINGS.last_complete_fy)},
+      ...series.future_years.map((year,index)=>({year,value:series.forecasts[other][index]}))].filter(row=>row.year>=start&&row.year<=end);
+    traces.push({x:points.map(row=>row.year),y:points.map(row=>row.value),name:modelLabel(other)+' - base',mode:'lines+markers',
+      line:{color:MODEL_COLORS[other],width:2,dash:'dot'},hovertemplate:'FY %{x}<br>'+modelLabel(other)+': $%{y:,.0f}<extra></extra>'});
+  });
+  // Coalesce rapid filter changes into one chart redraw on the next browser frame.
+  if (chartFrame !== null) cancelAnimationFrame(chartFrame);
+  chartFrame = requestAnimationFrame(() => {
+  chartFrame = null;
+  Plotly.react('chart',traces,{
+    margin:{t:20,l:75,r:20,b:130},paper_bgcolor:'white',plot_bgcolor:'white',
+    font:{family:'system-ui, sans-serif',color:'#40536c'},hovermode:'x unified',
+    xaxis:{title:{text:'Fiscal year (FY)'},tickformat:'d',dtick:end-start>15?5:1,range:[start-.25,end+.25],gridcolor:'#edf1f6'},
+    yaxis:{title:{text:'Revenue ($)'},tickprefix:'$',tickformat:'~s',gridcolor:'#edf1f6',zerolinecolor:'#cbd5e1'},
+    legend:{orientation:'h',x:0,y:-0.24,groupclick:'togglegroup'},
+    shapes:[{type:'line',x0:SETTINGS.last_complete_fy+.5,x1:SETTINGS.last_complete_fy+.5,y0:0,y1:1,yref:'paper',line:{color:'#94a3b8',dash:'dot',width:1}}],
+    uirevision:series.ba+'|'+series.gl+'|'+start+'|'+end
+  },{responsive:true,displaylogo:false,toImageButtonOptions:{filename:'revenue_forecast_'+series.ba+'_'+series.gl}});
+  });
+  byId('projectionRows').replaceChildren();
+  currentRows.forEach(row=>{
+    const tr=document.createElement('tr');
+    addCell(tr,'FY '+row.year);addCell(tr,row.type);addCell(tr,dollars(row.base));addCell(tr,dollars(row.adjusted),row.type==='Forecast'?'orange':'');
+    addCell(tr,row.type==='Actual'?'N/A':dollars(row.difference));addCell(tr,percent(row.baseYoY));addCell(tr,percent(row.adjustedYoY));byId('projectionRows').appendChild(tr);
+  });
+  byId('validationRows').replaceChildren();
+  orderedValidation(series).forEach(row=>{
+    const tr=document.createElement('tr');if(row.model===model)tr.className='selected';
+    [modelLabel(row.model),row.cases,dollars(row.mae),dollars(row.rmse),percent(row.wape),percent(row.skill)].forEach(value=>addCell(tr,value));
+    const td=document.createElement('td'),pill=document.createElement('span');
+    pill.textContent=row.verdict;pill.className='pill'+(row.verdict==='Improves on baseline'?' good':/Limited|Unavailable|No validation|warnings/.test(row.verdict)?' review':'');
+    td.appendChild(pill);tr.appendChild(td);byId('validationRows').appendChild(tr);
+  });
+}
+
+// 5. CSV downloads always use the currently displayed selection and scenario settings.
+function downloadCSV(filename,rows) {
+  if(!rows.length)return;
+  const columns=Object.keys(rows[0]);
+  const quote=value=>{let text=value==null?'':String(value);if(/^[=+@]/.test(text))text="'"+text;return '"'+text.replaceAll('"','""')+'"';};
+  const csv='\uFEFF'+[columns.map(quote).join(','),...rows.map(row=>columns.map(key=>quote(row[key])).join(','))].join('\r\n');
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  const link=document.createElement('a');link.href=url;link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+byId('downloadScenario').addEventListener('click',()=>{
+  const rows=currentRows.map(row=>({BA:currentSeries.ba,GL:currentSeries.gl,Model:modelLabel(currentModel),Origin_FY:SETTINGS.last_complete_fy,FY:row.year,
+    Type:row.type,Actual_or_base:row.base,Base_YoY_percent:row.baseYoY,Adjusted_YoY_percent:row.adjustedYoY,Notes:readNotes(currentSeries),Scenario_percent:+byId('adjustment').value,Scenario_mode:byId('mode').value,
+    Applied_adjustment_percent:row.applied,Adjusted_forecast:row.adjusted,Difference:row.difference}));
+  downloadCSV('scenario_BA_'+currentSeries.ba+'_GL_'+currentSeries.gl+'.csv',rows);
+});
+byId('downloadValidation').addEventListener('click',()=>downloadCSV('validation_BA_'+currentSeries.ba+'_GL_'+currentSeries.gl+'.csv',
+  orderedValidation(currentSeries).map(row=>({BA:currentSeries.ba,GL:currentSeries.gl,Origin_FY:SETTINGS.last_complete_fy,...row,model:modelLabel(row.model)}))));
+byId('reportNotes').addEventListener('input',()=>{
+  if(!currentSeries)return;
+  const key=notesKey(currentSeries),text=byId('reportNotes').value;
+  sessionNotes.set(key,text);
+  try {localStorage.setItem(key,text);byId('notesStatus').textContent='Saved in this browser';}
+  catch {byId('notesStatus').textContent='Saved for this session; download the scenario CSV to retain notes';}
+});
+byId('ba').addEventListener('change',()=>{updateGLs();render();});
+byId('gl').addEventListener('change',()=>{updateModels();render();});
+byId('startYear').addEventListener('change',()=>{if(+byId('startYear').value>+byId('endYear').value)byId('endYear').value=byId('startYear').value;render();});
+byId('endYear').addEventListener('change',()=>{if(+byId('endYear').value<+byId('startYear').value)byId('startYear').value=byId('endYear').value;render();});
+['model','mode'].forEach(id=>byId(id).addEventListener('change',render));
+byId('adjustment').addEventListener('input',render);
+document.querySelectorAll('[data-percent]').forEach(button=>button.addEventListener('click',()=>{byId('adjustment').value=button.dataset.percent;render();}));
+byId('cutoffBadge').textContent='Actuals through FY '+SETTINGS.last_complete_fy+' · '+SETTINGS.horizon+'-year forecast';
+byId('methodNotes').textContent='Models use up to '+SETTINGS.lookback+' annual observations. Backtests use up to '+SETTINGS.backtest_origins+' rolling origins. Monte Carlo uses '+SETTINGS.simulations.toLocaleString()+' simulations. Excluded GL codes: '+SETTINGS.excluded_gl_codes.join(', ')+'. All revenue types are included.';
+byId('reportFooter').textContent='Reproducible report · seed '+SETTINGS.seed+' · input SHA-256 '+SETTINGS.input_sha256.slice(0,16)+'… · '+Object.keys(SERIES).length+' BA/GL selections';
+updateGLs();render();
+</script>
+</body>
+</html>

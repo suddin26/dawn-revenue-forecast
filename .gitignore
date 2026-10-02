@@ -1,0 +1,21 @@
+# Source revenue data and generated reports
+/data/
+/result/
+/notebook/forecast_outputs/
+/notebook/*.html
+*.csv
+*.xlsx
+*.parquet
+
+# Python environments and caches
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+
+# Local credentials and agent settings
+.env
+.env.*
+.aws/
+.codex/
+.agents/
